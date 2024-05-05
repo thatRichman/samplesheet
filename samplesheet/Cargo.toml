@@ -1,0 +1,18 @@
+[package]
+name = "samplesheet"
+version = "0.1.0"
+edition = "2021"
+
+[[example]]
+name = "read_samplesheet"
+
+[dependencies]
+csv = "1.3.0"
+fxhash = "0.2.1"
+nom = "7.1.3"
+serde = { version = "1.0.193", features = ["derive"] }
+thiserror = "1.0.50"
+
+[dev-dependencies]
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"
