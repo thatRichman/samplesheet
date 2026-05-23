@@ -9,20 +9,20 @@ use nom::{
     combinator::opt,
     multi::many1,
     sequence::{delimited, pair, terminated},
-    IResult,
+    IResult, Parser,
 };
 
 use super::{OverrideCycle, SampleSheetError, SampleSheetSection};
 
 /// Match any number of trailing commas
 fn trailing_commas(input: &str) -> IResult<&str, &str> {
-    terminated(is_a(","), line_ending)(input)
+    terminated(is_a(","), line_ending).parse(input)
 }
 
 /// match a line containing only "[<content>]"
 /// returns <content>
 fn section_header(input: &str) -> IResult<&str, &str> {
-    delimited(tag("["), is_not("]"), terminated(tag("]"), trailing_commas))(input)
+    delimited(tag("["), is_not("]"), terminated(tag("]"), trailing_commas)).parse(input)
 }
 
 /// Parse a section header into SampleSheetSection and raw contents
@@ -53,12 +53,12 @@ fn section_contents(input: &str) -> IResult<&str, &str> {
 
 /// Parse a single OverrideCycle
 pub(crate) fn override_cycle(input: &str) -> IResult<&str, OverrideCycle> {
-    map_res(pair(one_of("YIUN"), u8), OverrideCycle::try_from)(input)
+    map_res(pair(one_of("YIUN"), u8), OverrideCycle::try_from).parse(input)
 }
 
 /// Parse OverrideCycles field
 pub(crate) fn override_cycles(input: &str) -> IResult<&str, Vec<Vec<OverrideCycle>>> {
-    many1(terminated(many1(override_cycle), opt(tag(";"))))(input)
+    many1(terminated(many1(override_cycle), opt(tag(";")))).parse(input)
 }
 
 /// Remove trailing commas and empty lines in a section
