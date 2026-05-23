@@ -169,16 +169,12 @@ impl Display for OverrideCycles {
 // TODO find an elegant way to "parse not validate" this
 /// each read can contain only one Y or I sequence
 fn validate_cycles(cycles: &[Vec<OverrideCycle>]) -> Result<(), SampleSheetError> {
-    match cycles
-        .iter()
-        .map(|s| {
-            s.iter()
-                .filter(|c| matches!(**c, OverrideCycle::I(..) | OverrideCycle::Y(..)))
-                .count()
-                .eq(&1)
-        })
-        .all(|r| r)
-    {
+    match cycles.iter().all(|s| {
+        s.iter()
+            .filter(|c| matches!(**c, OverrideCycle::I(..) | OverrideCycle::Y(..)))
+            .count()
+            .eq(&1)
+    }) {
         true => Ok(()),
         false => Err(SampleSheetError::ParseError(String::from(
             "each read can contain only one Y or I sequence",
@@ -416,9 +412,7 @@ impl SampleSheetBuilder {
     pub fn append_data(&mut self, d: SampleSheetData) {
         match &mut self.data {
             None => {
-                let mut data = Vec::new();
-                data.push(d);
-                self.data = Some(data);
+                self.data = Some(Vec::from([d]));
             }
             Some(data) => {
                 data.push(d);
@@ -453,16 +447,14 @@ impl SampleSheetBuilder {
     pub fn build(self) -> Result<SampleSheet, SampleSheetError> {
         let header = self
             .header
-            .ok_or_else(|| SampleSheetError::MissingSection("Header"))?;
+            .ok_or(SampleSheetError::MissingSection("Header"))?;
         let reads = self
             .reads
-            .ok_or_else(|| SampleSheetError::MissingSection("Reads"))?;
+            .ok_or(SampleSheetError::MissingSection("Reads"))?;
         let settings = self
             .settings
-            .ok_or_else(|| SampleSheetError::MissingSection("Settings"))?;
-        let data = self
-            .data
-            .ok_or_else(|| SampleSheetError::MissingSection("Data"))?;
+            .ok_or(SampleSheetError::MissingSection("Settings"))?;
+        let data = self.data.ok_or(SampleSheetError::MissingSection("Data"))?;
         Ok(SampleSheet {
             header,
             reads,
