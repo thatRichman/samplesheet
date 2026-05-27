@@ -390,7 +390,14 @@ pub struct SampleSheetData {
     pub sample_project: Option<String>,
     #[serde(default, rename = "Sample_Name")]
     pub sample_name: Option<String>,
-    // Per-sample settings
+    // TODO implement a proc macro to make this None when all fields are None
+    #[serde(default, flatten)]
+    pub settings: Option<SampleSettings>,
+}
+
+/// Per-sample settings
+#[derive(Debug, Deserialize)]
+pub struct SampleSettings {
     #[serde(default, rename = "OverrideCycles", deserialize_with = "callback_opt")]
     pub override_cycle: Option<OverrideCycles>,
     #[serde(default, rename = "BarcodeMismatchesIndex1")]
