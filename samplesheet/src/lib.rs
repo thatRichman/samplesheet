@@ -1,10 +1,12 @@
 #![allow(dead_code)]
 
 use fxhash::FxHashMap;
-pub use parser::transpose_kv;
 use serde::{de::DeserializeOwned, Deserialize};
 use std::{convert::Infallible, fmt::Display, num::ParseIntError, str::FromStr};
 use thiserror::Error;
+
+pub use parser::transpose_kv;
+pub use reader::read_samplesheet;
 
 pub(crate) mod deserializers;
 pub(crate) mod parser;
@@ -13,14 +15,19 @@ pub mod reader;
 use self::deserializers::*;
 
 pub const DEFAULT_ADAPTER_STRINGENCY: f32 = 0.9;
-pub const DEFAULT_MASK_SHORT_READS: u16 = 22;
+pub const DEFAULT_MASK_SHORT_READS: usize = 22;
+pub const DEFAULT_MINIMUM_TRIMMED_READ_LENGTH: usize = 35;
 
 const fn default_adapter_stringency() -> f32 {
     DEFAULT_ADAPTER_STRINGENCY
 }
 
-const fn default_mask_short_reads() -> u16 {
+const fn default_mask_short_reads() -> usize {
     DEFAULT_MASK_SHORT_READS
+}
+
+const fn default_minimum_trimmed_read_length() -> usize {
+    DEFAULT_MINIMUM_TRIMMED_READ_LENGTH
 }
 
 const fn default_version() -> SampleSheetVersion {
@@ -313,6 +320,18 @@ pub enum MinAdapterOlap {
     Three = 3,
 }
 
+/// Valid MinAdapterOlap values
+///
+/// The default of 1 matches the Illumina default.
+#[repr(u8)]
+#[derive(Debug, Deserialize, Default)]
+pub enum BarcodeMismatches {
+    Zero = 0,
+    #[default]
+    One = 1,
+    Two = 2,
+}
+
 /// The samplesheet Settings section
 ///
 /// Generally, defaults mirror Illumina defaults, but this should not be blindly trusted as fact.
@@ -330,6 +349,12 @@ pub struct SampleSheetSettings {
     pub adapter_behavior: AdapterBehavior,
     #[serde(default = "default_adapter_stringency")]
     pub adapter_stringency: f32,
+    #[serde(default = "BarcodeMismatches::default")]
+    pub barcode_mismatches_index_1: BarcodeMismatches,
+    #[serde(default = "BarcodeMismatches::default")]
+    pub barcode_mismatches_index_2: BarcodeMismatches,
+    #[serde(default = "default_minimum_trimmed_read_length")]
+    pub minimum_trimmed_read_length: usize,
     #[serde(default = "MinAdapterOlap::default")]
     pub minimum_adapter_overlap: MinAdapterOlap,
     #[serde(default = "default_bool::<false>", deserialize_with = "bool_from_int")]
@@ -337,11 +362,17 @@ pub struct SampleSheetSettings {
     #[serde(default = "default_bool::<true>", deserialize_with = "bool_from_int")]
     pub trim_umi: bool,
     #[serde(default = "default_mask_short_reads")]
-    pub mask_short_reads: u16,
+    pub mask_short_reads: usize,
     #[serde(default = "default_bool::<false>")]
     pub no_lane_splitting: bool,
     #[serde(default = "CompressionFormat::default")]
     pub fastq_compression_format: CompressionFormat,
+    #[serde(default = "default_bool::<false>")]
+    pub find_adapters_with_indels: bool,
+    #[serde(default = "Vec::new", deserialize_with = "vec_semicolon_sep")]
+    independent_index_collision_check: Vec<u8>,
+    #[serde(default = "Option::default")]
+    library_input_volume: Option<f32>,
 }
 
 /// The Data section of a samplesheet
@@ -355,6 +386,33 @@ pub struct SampleSheetData {
     pub index: String,
     #[serde(rename = "index2")]
     pub index_2: Option<String>,
+    #[serde(default, rename = "Sample_Project")]
+    pub sample_project: Option<String>,
+    #[serde(default, rename = "Sample_Name")]
+    pub sample_name: Option<String>,
+    // Per-sample settings
+    #[serde(default, rename = "OverrideCycles", deserialize_with = "callback_opt")]
+    pub override_cycle: Option<OverrideCycles>,
+    #[serde(default, rename = "BarcodeMismatchesIndex1")]
+    pub barcode_mismatches_index_1: Option<BarcodeMismatches>,
+    #[serde(default, rename = "BarcodeMismatchesIndex2")]
+    pub barcode_mismatches_index_2: Option<BarcodeMismatches>,
+    #[serde(
+        default,
+        rename = "AdapterRead1",
+        deserialize_with = "optional_vec_plus_sign_sep"
+    )]
+    pub adapter_read_1: Option<Vec<String>>,
+    #[serde(
+        default,
+        rename = "AdapterRead2",
+        deserialize_with = "optional_vec_plus_sign_sep"
+    )]
+    pub adapter_read_2: Option<Vec<String>>,
+    #[serde(default, rename = "AdapterBehavior")]
+    pub adapter_behavior: Option<AdapterBehavior>,
+    #[serde(default, rename = "AdapterStringency")]
+    pub adapter_stringency: Option<f32>,
 }
 
 /// A complete samplesheet

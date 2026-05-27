@@ -48,6 +48,37 @@ where
     }
 }
 
+pub(crate) fn optional_vec_plus_sign_sep<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match String::deserialize(deserializer)? {
+        s if s.contains('+') => Ok(Some(
+            s.split('+').map(|s| s.to_string()).collect::<Vec<String>>(),
+        )),
+        _ => Err(serde::de::Error::custom(
+            "expected plus-sign(+) delimited list",
+        )),
+    }
+}
+
+pub(crate) fn vec_semicolon_sep<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match String::deserialize(deserializer)? {
+        s if s.contains(';') => s
+            .split(';')
+            .map(|s| s.parse::<u8>().map_err(serde::de::Error::custom))
+            .collect(),
+        _ => Err(serde::de::Error::custom(
+            "expected semicolon(;) delimited list",
+        )),
+    }
+}
+
 impl<'de> Deserialize<'de> for OverrideCycles {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
